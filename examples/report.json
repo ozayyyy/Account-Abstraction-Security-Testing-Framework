@@ -1,0 +1,203 @@
+{
+  "forge_exit_code": 0,
+  "forge_totals": {
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0
+  },
+  "scenarios_passed": 20,
+  "scenarios_total": 20,
+  "scenarios": [
+    {
+      "id": "EXE-01",
+      "title": "Executor may use the allowlisted target",
+      "expected_decision": "Executor call to the allowlisted target succeeds",
+      "tests": {
+        "test_ExecutorCanExecuteAllowedTarget": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "EXE-02",
+      "title": "Executor may not call privileged functions directly",
+      "expected_decision": "Executor setOwner call reverts, owner unchanged",
+      "tests": {
+        "test_ExecutorCannotSetOwnerDirect": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "EXE-03",
+      "title": "Executor may not self-call",
+      "expected_decision": "Executor execute() to the account itself reverts",
+      "tests": {
+        "test_ExecutorCannotSelfCall": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "EXE-04",
+      "title": "Executor may not delegatecall",
+      "expected_decision": "Executor executeDelegate call reverts, owner unchanged",
+      "tests": {
+        "test_ExecutorCannotDelegatecall": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "EXE-05",
+      "title": "Batch authorisation is atomic",
+      "expected_decision": "Allowed batch succeeds; mixed batch reverts with no partial effects; owner batch with self-call succeeds",
+      "tests": {
+        "test_ExecutorBatchAllowedSucceeds": "PASS",
+        "test_ExecutorBatchMixedRevertsAtomically": "PASS",
+        "test_OwnerBatchWithSelfCallSucceeds": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "MOD-01",
+      "title": "Module installation is owner-only",
+      "expected_decision": "Non-owner install reverts; owner install succeeds",
+      "tests": {
+        "test_ModuleInstallOwnerOnly": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "MOD-02",
+      "title": "Installed module may execute the target",
+      "expected_decision": "Installed module call to the target succeeds",
+      "tests": {
+        "test_InstalledModuleCanExecuteTarget": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "MOD-03",
+      "title": "Module limits hold",
+      "expected_decision": "Module cannot self-call, cannot install another module, loses execution on uninstall",
+      "tests": {
+        "test_ModuleCannotSelfCall": "PASS",
+        "test_ModuleCannotInstallAnotherModule": "PASS",
+        "test_UninstalledModuleLosesExecution": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-01",
+      "title": "Valid UserOperation executes",
+      "expected_decision": "Validated owner operation executes, nonce consumed",
+      "tests": {
+        "test_ValidUserOpExecutes": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-02",
+      "title": "Bad signature rejected",
+      "expected_decision": "Operation signed by a non-owner is rejected, nothing executes",
+      "tests": {
+        "test_BadSignatureRejected": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-03",
+      "title": "Wrong nonce rejected",
+      "expected_decision": "Operation with a non-current nonce is rejected",
+      "tests": {
+        "test_WrongNonceRejected": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-04",
+      "title": "Expiry enforced",
+      "expected_decision": "Expired operation rejected, unexpired operation accepted",
+      "tests": {
+        "test_ExpiredUserOpRejected": "PASS",
+        "test_UnexpiredUserOpAccepted": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-05",
+      "title": "Validation is EntryPoint-only",
+      "expected_decision": "Direct validateUserOp calls and validator/executor validation attempts revert",
+      "tests": {
+        "test_ValidateDirectCallReverts": "PASS",
+        "test_ExecutorCannotValidate": "PASS",
+        "test_ValidatorCannotExecute": "PASS",
+        "test_DirectExecuteByRandomReverts": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-06",
+      "title": "Validator change is owner-only",
+      "expected_decision": "Only the owner can change the validator; with no validator, validation fails",
+      "tests": {
+        "test_ValidatorChangeIsOwnerOnly": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VAL-07",
+      "title": "Owner self-call through UserOperation",
+      "expected_decision": "Owner admin work inside a validated operation succeeds",
+      "tests": {
+        "test_OwnerCanSelfCallThroughUserOp": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VULN-A",
+      "title": "Variant A: direct privileged call",
+      "expected_decision": "Attacker sets owner directly on the vulnerable account; blocked on the correct account",
+      "tests": {
+        "test_VulnDirectPrivileged_AttackerSetsOwner": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VULN-B",
+      "title": "Variant B: unrestricted module install",
+      "expected_decision": "Attacker installs a hostile module and drains funds on the vulnerable account; blocked on the correct account",
+      "tests": {
+        "test_VulnModuleInstall_AttackerInstallsAndDrains": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VULN-C",
+      "title": "Variant C: delegatecall by executor",
+      "expected_decision": "Executor overwrites the owner via delegatecall on the vulnerable account; blocked on the correct account",
+      "tests": {
+        "test_VulnDelegatecall_ExecutorPwnsOwner": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VULN-D",
+      "title": "Variant D: nonce replay",
+      "expected_decision": "Same signed operation executes twice on the vulnerable account; second execution rejected on the correct account",
+      "tests": {
+        "test_VulnReplay_SameUserOpExecutesTwice": "PASS",
+        "test_VulnReplay_BadSignatureStillRejected": "PASS",
+        "test_ReplayRejectedOnCorrectAccount": "PASS",
+        "test_NonceIncrementsOnValidOp": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "VULN-E",
+      "title": "Variant E: self-call by executor",
+      "expected_decision": "Executor sets owner via self-call on the vulnerable account; blocked on the correct account, and the direct call is still blocked on the variant itself",
+      "tests": {
+        "test_VulnSelfCall_ExecutorSelfCallsSetOwner": "PASS"
+      },
+      "status": "pass"
+    }
+  ]
+}
