@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {UserOperation, Call} from "./Types.sol";
 import {SimpleValidator} from "./SimpleValidator.sol";
+import {ISessionKeyValidator} from "./SessionKeyValidator.sol";
 
 /// @notice Correct modular smart account (reference implementation).
 ///
@@ -38,6 +39,7 @@ contract ModularAccount {
     address public validator; // slot 2
     address public allowedTarget; // slot 3
     uint256 public nonce; // slot 4
+    address public sessionValidator; // slot 5, address(0) = no session-key policy
 
     mapping(address => bool) public isExecutor;
     mapping(address => bool) public isModule;
@@ -47,6 +49,7 @@ contract ModularAccount {
     event ValidatorSet(address indexed validator);
     event ExecutorSet(address indexed executor, bool allowed);
     event OwnerSet(address indexed owner);
+    event SessionValidatorSet(address indexed sessionValidator);
 
     constructor(address _owner, address _entryPoint, address _validator, address _allowedTarget) {
         owner = _owner;
@@ -77,6 +80,7 @@ contract ModularAccount {
 
     function execute(address dest, uint256 value, bytes calldata data) external payable virtual {
         _authorizeExecute(msg.sender, dest);
+        _useSessionKey(msg.sender, dest, value);
         (bool ok,) = dest.call{value: value}(data);
         require(ok, "execute failed");
     }
@@ -84,6 +88,7 @@ contract ModularAccount {
     function executeBatch(Call[] calldata calls) external payable virtual {
         for (uint256 i = 0; i < calls.length; i++) {
             _authorizeExecute(msg.sender, calls[i].target);
+            _useSessionKey(msg.sender, calls[i].target, calls[i].value);
         }
         for (uint256 i = 0; i < calls.length; i++) {
             (bool ok,) = calls[i].target.call{value: calls[i].value}(calls[i].data);
@@ -136,6 +141,12 @@ contract ModularAccount {
         emit OwnerSet(newOwner);
     }
 
+    function setSessionValidator(address newSessionValidator) external virtual {
+        _authorizePrivileged(msg.sender);
+        sessionValidator = newSessionValidator;
+        emit SessionValidatorSet(newSessionValidator);
+    }
+
     // --- internal authorisation ---
 
     function _authorizePrivileged(address caller) internal view {
@@ -147,9 +158,27 @@ contract ModularAccount {
     function _authorizeExecute(address caller, address dest) internal view virtual {
         if (caller == owner || caller == entryPoint) return;
         if (isExecutor[caller]) {
+            // With a session validator set, the per-key policy is the
+            // only executor check; _useSessionKey enforces it.
+            if (sessionValidator != address(0)) return;
             require(dest == allowedTarget, "executor: target not allowed");
             return;
         }
         revert("not authorized");
+    }
+
+    /// @notice Session-key policy enforcement. Called on every executor
+    /// execute()/executeBatch() call when a session validator is set.
+    /// A no-op when no validator is set or the caller is not an
+    /// executor. The check runs before any call executes, so a batch
+    /// that violates the policy reverts with no partial effects and
+    /// no spend recorded.
+    function _useSessionKey(address caller, address dest, uint256 value) internal virtual {
+        if (sessionValidator != address(0) && isExecutor[caller]) {
+            require(
+                ISessionKeyValidator(sessionValidator).authorize(caller, dest, value),
+                "session: not authorized"
+            );
+        }
     }
 }

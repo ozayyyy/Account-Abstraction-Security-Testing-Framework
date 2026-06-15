@@ -13,18 +13,28 @@ import {VulnModuleInstall} from "../src/reference/VulnModuleInstall.sol";
 import {VulnDelegatecall} from "../src/reference/VulnDelegatecall.sol";
 import {VulnReplay} from "../src/reference/VulnReplay.sol";
 import {VulnSelfCall} from "../src/reference/VulnSelfCall.sol";
+import {VulnSessionKey} from "../src/reference/VulnSessionKey.sol";
+import {SessionKeyValidator} from "../src/SessionKeyValidator.sol";
+import {BenignImplementation, MaliciousImplementation} from "../src/DelegationTargets.sol";
 
 /// @notice Shared fixture. Fixed keys, local chain only, every account
 /// funded with 10 ether so fund-movement tests have observable state.
 abstract contract AATestBase is Test {
     uint256 internal constant OWNER_PK = 0xA11CE;
     uint256 internal constant ATTACKER_PK = 0xB0B;
+    uint256 internal constant DELEGATOR_PK = 0xDE1E6A70;
 
     address internal owner;
     address internal attacker;
     address internal executor;
+    address internal delegator;
 
     Target internal target;
+    Target internal target2;
+    SessionKeyValidator internal sessionValidator;
+    SessionKeyValidator internal vulnSessionValidator;
+    BenignImplementation internal benignImpl;
+    MaliciousImplementation internal malImpl;
     SimpleValidator internal validator;
     MinimalEntryPoint internal entryPoint;
     MockModule internal mockModule;
@@ -37,13 +47,19 @@ abstract contract AATestBase is Test {
     VulnDelegatecall internal vulnDelegate;
     VulnReplay internal vulnReplay;
     VulnSelfCall internal vulnSelfCall;
+    ModularAccount internal sessionAccount;
+    VulnSessionKey internal vulnSession;
 
     function setUp() public virtual {
         owner = vm.addr(OWNER_PK);
         attacker = vm.addr(ATTACKER_PK);
         executor = makeAddr("executor");
+        delegator = vm.addr(DELEGATOR_PK);
 
         target = new Target();
+        target2 = new Target();
+        benignImpl = new BenignImplementation();
+        malImpl = new MaliciousImplementation();
         validator = new SimpleValidator();
         entryPoint = new MinimalEntryPoint();
         mockModule = new MockModule();
@@ -66,6 +82,21 @@ abstract contract AATestBase is Test {
         vulnSelfCall = new VulnSelfCall(
             owner, address(entryPoint), address(validator), address(target)
         );
+        sessionAccount = new ModularAccount(
+            owner, address(entryPoint), address(validator), address(target)
+        );
+        vulnSession = new VulnSessionKey(
+            owner, address(entryPoint), address(validator), address(target)
+        );
+        sessionValidator = new SessionKeyValidator(address(sessionAccount), owner);
+        vulnSessionValidator = new SessionKeyValidator(address(vulnSession), owner);
+        vm.prank(owner);
+        sessionAccount.setSessionValidator(address(sessionValidator));
+        vm.prank(owner);
+        vulnSession.setSessionValidator(address(vulnSessionValidator));
+        vm.deal(address(sessionAccount), 10 ether);
+        vm.deal(address(vulnSession), 10 ether);
+        vm.deal(delegator, 10 ether);
 
         ModularAccount[6] memory accounts = [
             account,
@@ -119,5 +150,26 @@ abstract contract AATestBase is Test {
 
     function _setValueCallData(uint256 v) internal pure returns (bytes memory) {
         return abi.encodeWithSignature("setValue(uint256)", v);
+    }
+
+    function _depositCallData() internal pure returns (bytes memory) {
+        return abi.encodeWithSignature("deposit()");
+    }
+
+    /// @notice Grant an executor role on an account and a session key
+    /// for that key holder on the matching validator. The caller is
+    /// the owner in both steps.
+    function _grantSessionKey(
+        ModularAccount acct,
+        SessionKeyValidator val,
+        address key,
+        address allowedTarget,
+        uint256 spendingLimit,
+        uint48 validUntil
+    ) internal {
+        vm.prank(owner);
+        acct.setExecutor(key, true);
+        vm.prank(owner);
+        val.grantSessionKey(key, allowedTarget, spendingLimit, validUntil);
     }
 }

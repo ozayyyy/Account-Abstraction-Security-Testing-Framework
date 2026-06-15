@@ -1,13 +1,49 @@
 {
   "forge_exit_code": 0,
   "forge_totals": {
-    "passed": 31,
+    "passed": 45,
     "failed": 0,
     "skipped": 0
   },
-  "scenarios_passed": 20,
-  "scenarios_total": 20,
+  "scenarios_passed": 28,
+  "scenarios_total": 28,
   "scenarios": [
+    {
+      "id": "DEL-01",
+      "title": "Legitimate delegation executes",
+      "expected_decision": "EOA delegated to a benign implementation runs its code",
+      "tests": {
+        "test_LegitimateDelegationExecutes": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "DEL-02",
+      "title": "Malicious delegation drains the EOA",
+      "expected_decision": "EOA delegated to a hostile implementation loses its whole balance to the attacker's call",
+      "tests": {
+        "test_MaliciousDelegationDrainsEOA": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "DEL-03",
+      "title": "Delegation revocation clears the code",
+      "expected_decision": "Delegating to address(0) removes the code; the implementation no longer runs",
+      "tests": {
+        "test_DelegationRevocationClearsCode": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "DEL-04",
+      "title": "Delegation authorisation cannot be replayed",
+      "expected_decision": "Attaching the same signed authorisation twice is rejected",
+      "tests": {
+        "test_DelegationReplayRejected": "PASS"
+      },
+      "status": "pass"
+    },
     {
       "id": "EXE-01",
       "title": "Executor may use the allowlisted target",
@@ -81,6 +117,48 @@
         "test_ModuleCannotSelfCall": "PASS",
         "test_ModuleCannotInstallAnotherModule": "PASS",
         "test_UninstalledModuleLosesExecution": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "SK-01",
+      "title": "Session key expiry enforced",
+      "expected_decision": "Expired session key rejected on the correct account; the same expired key executes on variant F",
+      "tests": {
+        "test_SessionKeyExpiredRejected": "PASS",
+        "test_VulnSessionKey_ExpiredKeyExecutes": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "SK-02",
+      "title": "Session key spending limit enforced",
+      "expected_decision": "Within-limit calls succeed and spend accumulates; overspend rejected; overspend executes on variant F",
+      "tests": {
+        "test_SessionKeyValidCallSucceeds": "PASS",
+        "test_SessionKeySpendAccumulatesToLimit": "PASS",
+        "test_SessionKeyOverspendRejected": "PASS",
+        "test_VulnSessionKey_OverspendExecutes": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "SK-03",
+      "title": "Session key target enforced",
+      "expected_decision": "Call to a target outside the key's allowlist rejected; executes on variant F",
+      "tests": {
+        "test_SessionKeyWrongTargetRejected": "PASS",
+        "test_VulnSessionKey_WrongTargetExecutes": "PASS"
+      },
+      "status": "pass"
+    },
+    {
+      "id": "SK-04",
+      "title": "Session key revocation enforced",
+      "expected_decision": "Revoked key rejected; the same revoked key executes on variant F",
+      "tests": {
+        "test_SessionKeyRevokedRejected": "PASS",
+        "test_VulnSessionKey_RevokedKeyExecutes": "PASS"
       },
       "status": "pass"
     },

@@ -1,12 +1,16 @@
 # Account abstraction permission-decision report
 
-Foundry suite: 31 passed, 0 failed, 0 skipped (exit code 0).
-Scenarios: 20/20 pass.
+Foundry suite: 45 passed, 0 failed, 0 skipped (exit code 0).
+Scenarios: 28/28 pass.
 
 A scenario passes only when every Foundry test mapped to it passes. For the vulnerable variants, 'pass' means the test proved the defect: the forbidden action succeeds on the vulnerable account and is blocked on the correct account.
 
 | Scenario | Title | Status |
 | --- | --- | --- |
+| DEL-01 | Legitimate delegation executes | pass |
+| DEL-02 | Malicious delegation drains the EOA | pass |
+| DEL-03 | Delegation revocation clears the code | pass |
+| DEL-04 | Delegation authorisation cannot be replayed | pass |
 | EXE-01 | Executor may use the allowlisted target | pass |
 | EXE-02 | Executor may not call privileged functions directly | pass |
 | EXE-03 | Executor may not self-call | pass |
@@ -15,6 +19,10 @@ A scenario passes only when every Foundry test mapped to it passes. For the vuln
 | MOD-01 | Module installation is owner-only | pass |
 | MOD-02 | Installed module may execute the target | pass |
 | MOD-03 | Module limits hold | pass |
+| SK-01 | Session key expiry enforced | pass |
+| SK-02 | Session key spending limit enforced | pass |
+| SK-03 | Session key target enforced | pass |
+| SK-04 | Session key revocation enforced | pass |
 | VAL-01 | Valid UserOperation executes | pass |
 | VAL-02 | Bad signature rejected | pass |
 | VAL-03 | Wrong nonce rejected | pass |
@@ -29,6 +37,30 @@ A scenario passes only when every Foundry test mapped to it passes. For the vuln
 | VULN-E | Variant E: self-call by executor | pass |
 
 ## Per-scenario detail
+
+### DEL-01 — Legitimate delegation executes
+
+Expected: EOA delegated to a benign implementation runs its code
+
+- `test_LegitimateDelegationExecutes`: PASS
+
+### DEL-02 — Malicious delegation drains the EOA
+
+Expected: EOA delegated to a hostile implementation loses its whole balance to the attacker's call
+
+- `test_MaliciousDelegationDrainsEOA`: PASS
+
+### DEL-03 — Delegation revocation clears the code
+
+Expected: Delegating to address(0) removes the code; the implementation no longer runs
+
+- `test_DelegationRevocationClearsCode`: PASS
+
+### DEL-04 — Delegation authorisation cannot be replayed
+
+Expected: Attaching the same signed authorisation twice is rejected
+
+- `test_DelegationReplayRejected`: PASS
 
 ### EXE-01 — Executor may use the allowlisted target
 
@@ -81,6 +113,36 @@ Expected: Module cannot self-call, cannot install another module, loses executio
 - `test_ModuleCannotSelfCall`: PASS
 - `test_ModuleCannotInstallAnotherModule`: PASS
 - `test_UninstalledModuleLosesExecution`: PASS
+
+### SK-01 — Session key expiry enforced
+
+Expected: Expired session key rejected on the correct account; the same expired key executes on variant F
+
+- `test_SessionKeyExpiredRejected`: PASS
+- `test_VulnSessionKey_ExpiredKeyExecutes`: PASS
+
+### SK-02 — Session key spending limit enforced
+
+Expected: Within-limit calls succeed and spend accumulates; overspend rejected; overspend executes on variant F
+
+- `test_SessionKeyValidCallSucceeds`: PASS
+- `test_SessionKeySpendAccumulatesToLimit`: PASS
+- `test_SessionKeyOverspendRejected`: PASS
+- `test_VulnSessionKey_OverspendExecutes`: PASS
+
+### SK-03 — Session key target enforced
+
+Expected: Call to a target outside the key's allowlist rejected; executes on variant F
+
+- `test_SessionKeyWrongTargetRejected`: PASS
+- `test_VulnSessionKey_WrongTargetExecutes`: PASS
+
+### SK-04 — Session key revocation enforced
+
+Expected: Revoked key rejected; the same revoked key executes on variant F
+
+- `test_SessionKeyRevokedRejected`: PASS
+- `test_VulnSessionKey_RevokedKeyExecutes`: PASS
 
 ### VAL-01 — Valid UserOperation executes
 

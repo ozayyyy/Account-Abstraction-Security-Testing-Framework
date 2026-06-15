@@ -13,6 +13,12 @@ contract Target {
         value = v;
     }
 
+    /// @notice Payable entry for spending-limit tests: moves value
+    /// into the target and records it in the counter.
+    function deposit() external payable {
+        counter++;
+    }
+
     function increment() external {
         counter++;
     }

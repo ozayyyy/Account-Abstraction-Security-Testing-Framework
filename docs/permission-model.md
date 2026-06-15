@@ -8,6 +8,8 @@
 | EntryPoint | `MinimalEntryPoint`. Calls `validateUserOp`, then executes the validated callData. | Trusted to call only after validation; it never invents operations |
 | Validator | `SimpleValidator`. Answers one question: does this signature recover to the owner over this operation hash? | Trusted for signature checking only; it has no execution rights |
 | Executor | A limited session key (e.g. a dapp session). May use the account, but only within its allowlist. | Partially trusted, scope-limited |
+| Session-key validator | `SessionKeyValidator`. Holds per-key policy: expiry, spending limit, allowed target, revocation. The account consults it on every executor call when one is set. | Trusted for policy checks only; it cannot execute and cannot change account state |
+| Delegated EOA | An externally owned account that signed an EIP-7702 authorisation to run an implementation's code as itself. | Trusted exactly as much as the implementation it delegated to — which may be nothing |
 | Module | Code installed into the account. Once installed it is trusted to call `moduleExecute`. | Trusted once installed — installation is the gate |
 | Target | An ordinary external contract (`Target.setValue` / `increment`). Holds no funds, no privileges. | Untrusted, harmless |
 
@@ -21,6 +23,8 @@
 | `execute` to allowlisted target | Allowed | Allowed | Allowed | — (use `moduleExecute`) | Blocked |
 | `execute` to any other address | Allowed | Allowed | Blocked | — | Blocked |
 | `execute` to the account itself (self-call) | Allowed | Allowed | Blocked | Blocked | Blocked |
+| `execute` with a valid session key (within expiry, limit, target) | — | — | Allowed | — | Blocked |
+| `execute` with an expired, overspent, wrong-target or revoked session key | — | — | Blocked | — | Blocked |
 | `executeBatch`, all calls allowed | Allowed | Allowed | Allowed | — | Blocked |
 | `executeBatch`, any call privileged | Blocked (whole batch reverts) | Blocked | Blocked | — | Blocked |
 | `executeDelegate` | Allowed | Allowed | Blocked | Blocked | Blocked |
@@ -39,6 +43,20 @@ Notes on the matrix:
   the account itself. The check that matters is therefore who was
   allowed to start the self-call, not who the inner call appears to
   come from.
+- A session key is only as narrow as its policy: the key's allowed
+  target, spending limit, expiry and revocation state are checked on
+  every executor call, and spend is recorded across calls, so a limit
+  cannot be beaten by splitting one large call into many small ones.
+  With no session validator set, the coarse allowlist (one target)
+  is the executor's only check; with one set, the per-key policy
+  replaces it.
+- Delegation is not an account permission: an EOA that delegates to
+  an implementation runs that implementation's code with the EOA's
+  balance and storage. There is no check in the delegation mechanism
+  that distinguishes a benign implementation from a hostile one. The
+  defences are choosing the implementation, revoking by delegating
+  to address(0), and the authorisation nonce, which makes a signed
+  authorisation unusable twice.
 - A module is trusted once installed, so `moduleExecute` places no
   destination restriction other than "not the account itself". The
   security of modules lives entirely in the install check.
@@ -65,6 +83,17 @@ Notes on the matrix:
    storage. The only callers allowed to start a delegatecall are the
    owner and the EntryPoint, because a delegatecall is equivalent to
    running arbitrary code as the account.
+6. **Session keys.** The validator answers four questions — is the
+   key live, unrevoked, within its spending limit, and calling its
+   allowed target — and only the account may ask. The validator
+   cannot execute and cannot move funds; granting and revoking keys
+   is the owner's job, and changing which validator is installed is
+   itself privileged.
+7. **Delegation.** The EOA's code is the boundary: once an EOA
+   delegates, anyone who can call the EOA can run the
+   implementation's code as the EOA. The authorisation signature is
+   the gate, the nonce makes it single-use, and delegating to
+   address(0) is the revoke.
 
 ## Invariants
 
@@ -83,6 +112,9 @@ covered by tests:
 5. A batch either executes entirely within the caller's permissions
    or reverts entirely; a privileged call hidden in a batch does not
    slip through and does not leave earlier calls applied.
+6. A session key can only act within its expiry, spending limit,
+   allowed target and revocation state, on every path, and spend
+   accumulates across calls until the limit is reached.
 
 ## Reference defects and what they break
 
@@ -93,6 +125,7 @@ covered by tests:
 | C `VulnDelegatecall` | executor may delegatecall | 3 | Executor overwrites the owner (slot 0) |
 | D `VulnReplay` | nonce never checked or consumed | 2 | One signed operation executes twice |
 | E `VulnSelfCall` | executor may self-call via `execute` | 1, 3 | Executor sets the owner through a self-call; the direct call is still blocked, which is what makes this defect distinct from A |
+| F `VulnSessionKey` | session-key policy never enforced | 3, 6 | Executor with an expired, overspent, wrong-target or revoked key executes anyway; with a validator set the executor has no check at all |
 
 ## Research questions, answered from the test results
 
@@ -123,7 +156,21 @@ another component's: the validator cannot execute, the executor
 cannot validate, and a module cannot install another module.
 
 **Which invariants best describe the intended permission model?**
-The five invariants above. Invariant 3 (an executor can never reach
+The six invariants above. Invariant 3 (an executor can never reach
 privileged state on any path) is the sharpest: it is the one the
 reference defects violate, and it is the one that requires a test
 per path rather than a single test per function.
+
+**Do session-key limits hold across calls, or only per call?**
+Across calls: the validator records spend, so two 0.4 ether calls
+against a 1 ether limit leave 0.2, and a third 0.4 call is rejected.
+On variant F none of it holds — the limit is never consulted.
+
+**What does delegation actually trust?**
+The implementation, and nothing else. The tests show a delegated
+EOA running benign code (counter increments), the same EOA drained
+in one call once it delegates to hostile code, revocation by
+delegating to address(0) clearing the code, and a signed
+authorisation being unusable a second time. There is no mechanism
+in the tests that could have told the two implementations apart
+before the delegation was signed.
